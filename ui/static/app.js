@@ -15,7 +15,6 @@ async function refreshStatus() {
     $('#pinned-size').textContent = data.pinned_size || '—';
     $('#cache-size').textContent = data.cache_size || '—';
     if (data.gateway_url) gatewayURL = data.gateway_url;
-    updateBootstrapAddr(data.bootstrap_multiaddr);
     $('#status-badge').textContent = 'online';
     $('#status-badge').className = 'badge ok';
   } catch {
@@ -167,18 +166,28 @@ function uploadFile(file) {
 }
 
 // --- Bootstrap ---
-let bootstrapAddr = '';
+let bootstrapAddrs = [];
 
-function updateBootstrapAddr(addr) {
-  bootstrapAddr = addr || '';
-  $('#bootstrap-addr').textContent = bootstrapAddr || '—';
+async function refreshBootstrap() {
+  try {
+    const res = await fetch(`${API}/bootstrap`);
+    bootstrapAddrs = await res.json();
+    const list = $('#bootstrap-list');
+    if (bootstrapAddrs.length === 0) {
+      list.innerHTML = '<code class="mono">No known nodes yet.</code>';
+      return;
+    }
+    list.innerHTML = bootstrapAddrs.map(a => `<code class="mono">${a}</code>`).join('');
+  } catch (err) {
+    console.error('Failed to load bootstrap list:', err);
+  }
 }
 
 $('#copy-bootstrap').addEventListener('click', () => {
-  if (!bootstrapAddr) return;
-  copyText(bootstrapAddr).then(() => {
+  if (bootstrapAddrs.length === 0) return;
+  copyText(bootstrapAddrs.join('\n')).then(() => {
     $('#copy-bootstrap').textContent = 'Copied!';
-    setTimeout(() => { $('#copy-bootstrap').textContent = 'Copy'; }, 1500);
+    setTimeout(() => { $('#copy-bootstrap').textContent = 'Copy all'; }, 1500);
   });
 });
 
@@ -221,6 +230,7 @@ $('#connect-peer').addEventListener('click', async () => {
     $('#peer-multiaddr').value = '';
     refreshPeers();
     refreshStatus();
+    refreshBootstrap();
   } catch (err) {
     statusEl.textContent = err.message;
     statusEl.className = 'connect-status err';
@@ -287,6 +297,7 @@ refreshStatus().then(() => {
   refreshPins();
   refreshPeers();
   refreshCache();
+  refreshBootstrap();
 });
 
 // Auto-refresh status every 10s

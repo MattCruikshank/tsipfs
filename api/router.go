@@ -25,6 +25,7 @@ func NewRouter(n *node.Node, startTime time.Time, gatewayURL string) http.Handle
 	mux.HandleFunc("GET /api/v1/status", sh.NodeStatus)
 	mux.HandleFunc("GET /api/v1/peers", sh.Peers)
 	mux.HandleFunc("POST /api/v1/peers/connect", sh.ConnectPeer)
+	mux.HandleFunc("GET /api/v1/bootstrap", sh.BootstrapList)
 
 	return mux
 }
