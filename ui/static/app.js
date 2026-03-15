@@ -40,10 +40,11 @@ async function refreshPins() {
 
     for (const pin of pins) {
       const tr = document.createElement('tr');
+      const typeLabel = pin.type === 'recursive' ? 'pinned' : pin.type === 'direct' ? 'direct' : pin.type;
       tr.innerHTML = `
         <td>${pin.cid}</td>
         <td>${pin.name || ''}</td>
-        <td>${pin.type}</td>
+        <td>${typeLabel}</td>
         <td><button class="btn-unpin" data-cid="${pin.cid}">unpin</button></td>
       `;
       tbody.appendChild(tr);

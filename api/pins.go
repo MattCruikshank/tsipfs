@@ -91,7 +91,7 @@ func (h *PinHandler) List(w http.ResponseWriter, r *http.Request) {
 	var pins []pinInfo
 
 	// List recursive pins (channel-based API)
-	for sp := range h.Node.Pinner.RecursiveKeys(ctx, false) {
+	for sp := range h.Node.Pinner.RecursiveKeys(ctx, true) {
 		if sp.Err != nil {
 			http.Error(w, fmt.Sprintf("listing recursive pins: %v", sp.Err), http.StatusInternalServerError)
 			return
@@ -100,7 +100,7 @@ func (h *PinHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// List direct pins
-	for sp := range h.Node.Pinner.DirectKeys(ctx, false) {
+	for sp := range h.Node.Pinner.DirectKeys(ctx, true) {
 		if sp.Err != nil {
 			http.Error(w, fmt.Sprintf("listing direct pins: %v", sp.Err), http.StatusInternalServerError)
 			return
