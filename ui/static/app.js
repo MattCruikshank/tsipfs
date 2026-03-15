@@ -290,18 +290,32 @@ $('#connect-peer').addEventListener('click', async () => {
     }
   }
 
-  if (addrs.length === 0) {
-    statusEl.textContent = 'Swarm key matches. No new peers to add.';
+  // Filter out our own node's multiaddr and already-known peers
+  const ownPeerId = bootstrapData.peers.length > 0
+    ? bootstrapData.peers[0].split('/p2p/').pop()
+    : null;
+  const knownAddrs = new Set(bootstrapData.peers.map(p => p));
+  const newAddrs = addrs.filter(a => {
+    if (ownPeerId && a.includes('/p2p/' + ownPeerId)) return false;
+    if (knownAddrs.has(a)) return false;
+    return true;
+  });
+
+  if (newAddrs.length === 0) {
+    statusEl.textContent = swarmKey
+      ? 'Swarm key matches. No new peers to add.'
+      : 'No new peers to add.';
     statusEl.className = 'connect-status ok';
+    $('#peer-multiaddr').value = '';
     return;
   }
 
-  statusEl.textContent = `Adding ${addrs.length} node(s)...`;
+  statusEl.textContent = `Adding ${newAddrs.length} node(s)...`;
   statusEl.className = 'connect-status';
 
   let added = 0;
   let errors = [];
-  for (const addr of addrs) {
+  for (const addr of newAddrs) {
     try {
       const res = await fetch(`${API}/peers/connect`, {
         method: 'POST',
