@@ -208,33 +208,47 @@ function copyText(text) {
 }
 
 $('#connect-peer').addEventListener('click', async () => {
-  const addr = $('#peer-multiaddr').value.trim();
-  if (!addr) return;
+  const raw = $('#peer-multiaddr').value.trim();
+  if (!raw) return;
+
+  const addrs = raw.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
+  if (addrs.length === 0) return;
 
   const statusEl = $('#connect-status');
-  statusEl.textContent = 'Connecting...';
+  statusEl.textContent = `Adding ${addrs.length} node(s)...`;
   statusEl.className = 'connect-status';
 
-  try {
-    const res = await fetch(`${API}/peers/connect`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ multiaddr: addr }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text);
+  let added = 0;
+  let errors = [];
+  for (const addr of addrs) {
+    try {
+      const res = await fetch(`${API}/peers/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ multiaddr: addr }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        errors.push(`${addr.slice(0, 30)}...: ${text.trim()}`);
+      } else {
+        added++;
+      }
+    } catch (err) {
+      errors.push(`${addr.slice(0, 30)}...: ${err.message}`);
     }
-    statusEl.textContent = 'Connected and saved!';
+  }
+
+  if (errors.length === 0) {
+    statusEl.textContent = `Added ${added} node(s)!`;
     statusEl.className = 'connect-status ok';
     $('#peer-multiaddr').value = '';
-    refreshPeers();
-    refreshStatus();
-    refreshBootstrap();
-  } catch (err) {
-    statusEl.textContent = err.message;
+  } else {
+    statusEl.textContent = `Added ${added}, failed ${errors.length}: ${errors[0]}`;
     statusEl.className = 'connect-status err';
   }
+  refreshPeers();
+  refreshStatus();
+  refreshBootstrap();
 });
 
 // --- Peers ---
