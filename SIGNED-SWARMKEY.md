@@ -177,6 +177,57 @@ data/swarm_key_bundle.json     # current signed bundle (for re-sharing)
 data/pending_swarm_key.json    # pending rotation (applied on restart)
 ```
 
+## Idea: Scheduled rotation via IPNS
+
+The network founder could use an IPNS name to pre-publish the **next** swarm key with an activation timestamp. Nodes check it periodically and stage the rotation automatically — no manual distribution needed.
+
+### How it would work
+
+1. Founder creates an IPNS key for rotation announcements (e.g. `tsipfs key gen rotation`)
+2. Publishes a signed bundle with `activate_at` in the future:
+
+```json
+{
+  "swarm_key": "b4c9d3e2...",
+  "sequence": 4,
+  "activate_at": "2026-04-01T00:00:00Z",
+  "note": "Q2 2026 rotation",
+  "signature": "..."
+}
+```
+
+3. Nodes periodically resolve the IPNS name, verify the signature, and stage the key
+4. At `activate_at`, nodes restart with the new key (or apply it live)
+
+### Tradeoffs
+
+**Good:**
+- Fully automatic — publish once, all nodes rotate on schedule
+- Founder doesn't need to be online at rotation time
+- Reduces coordination overhead for large networks
+
+**Risky:**
+- If the pre-published key leaks, attackers know the upcoming key early
+- IPNS resolution requires DHT access, which requires a valid swarm key — a node already locked out can't resolve the new key (chicken-and-egg)
+- Pre-committing removes the ability to react to a compromise by skipping to an unplanned key
+
+**Mitigation:**
+- Only publish the *next* key, not multiple future keys — limits exposure window
+- Emergency override: an out-of-band bundle with a higher sequence number always takes priority over a scheduled one
+- The `TSIPFS_NETWORK_PUBKEY` trust anchor means even a leaked swarm key can't produce a valid signed bundle
+
+### Configuration
+
+The IPNS name for rotation announcements would be a well-known configuration:
+
+```env
+TSIPFS_ROTATION_IPNS=k51qzi5uqu5dg8...
+```
+
+Nodes that have this set will poll for updates. Nodes without it rely on manual rotation.
+
+This is a future enhancement — manual rotation (Phases A–C) should come first.
+
 ## Phases
 
 ### Phase A — Signing infrastructure
