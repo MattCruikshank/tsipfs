@@ -75,6 +75,27 @@
       <p id="no-pins" hidden>No pinned content.</p>
     </section>
 
+    <section id="bootstrap-section">
+      <h2>Bootstrap</h2>
+      <div class="bootstrap-box">
+        <div class="bootstrap-share">
+          <span class="label">Share this node</span>
+          <div class="copy-row">
+            <code id="bootstrap-addr" class="mono">—</code>
+            <button id="copy-bootstrap" class="btn-sm">Copy</button>
+          </div>
+        </div>
+        <div class="bootstrap-connect">
+          <span class="label">Connect to a peer</span>
+          <div class="connect-row">
+            <input type="text" id="peer-multiaddr" placeholder="/dns4/host/tcp/443/p2p/12D3KooW...">
+            <button id="connect-peer" class="btn-sm">Connect</button>
+          </div>
+          <span id="connect-status" class="connect-status"></span>
+        </div>
+      </div>
+    </section>
+
     <section id="peers-section">
       <h2>Peers <button id="refresh-peers" class="btn-sm">Refresh</button></h2>
       <table id="peers-table">

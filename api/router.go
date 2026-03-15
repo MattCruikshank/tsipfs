@@ -24,6 +24,7 @@ func NewRouter(n *node.Node, startTime time.Time, gatewayURL string) http.Handle
 	sh := &StatusHandler{Node: n, StartTime: startTime, GatewayURL: gatewayURL}
 	mux.HandleFunc("GET /api/v1/status", sh.NodeStatus)
 	mux.HandleFunc("GET /api/v1/peers", sh.Peers)
+	mux.HandleFunc("POST /api/v1/peers/connect", sh.ConnectPeer)
 
 	return mux
 }

@@ -17,13 +17,14 @@ type StatusHandler struct {
 }
 
 type nodeStatus struct {
-	Status     string `json:"status"`
-	PeerCount  int    `json:"peer_count"`
-	PeerID     string `json:"peer_id"`
-	Uptime     string `json:"uptime"`
-	PinnedSize string `json:"pinned_size"`
-	CacheSize  string `json:"cache_size"`
-	GatewayURL string `json:"gateway_url"`
+	Status             string `json:"status"`
+	PeerCount          int    `json:"peer_count"`
+	PeerID             string `json:"peer_id"`
+	Uptime             string `json:"uptime"`
+	PinnedSize         string `json:"pinned_size"`
+	CacheSize          string `json:"cache_size"`
+	GatewayURL         string `json:"gateway_url"`
+	BootstrapMultiaddr string `json:"bootstrap_multiaddr"`
 }
 
 type peerInfo struct {
@@ -51,8 +52,40 @@ func (h *StatusHandler) NodeStatus(w http.ResponseWriter, r *http.Request) {
 		Uptime:     uptime,
 		PinnedSize: humanSize(pinnedSize),
 		CacheSize:  humanSize(cacheSize),
-		GatewayURL: h.GatewayURL,
+		GatewayURL:         h.GatewayURL,
+		BootstrapMultiaddr: h.Node.BootstrapMultiaddr(h.funnelHost()),
 	})
+}
+
+func (h *StatusHandler) funnelHost() string {
+	if h.GatewayURL == "" {
+		return ""
+	}
+	// Strip "https://" prefix
+	host := h.GatewayURL
+	if len(host) > 8 && host[:8] == "https://" {
+		host = host[8:]
+	}
+	return host
+}
+
+// ConnectPeer handles POST /api/v1/peers/connect — connect to a bootstrap peer and save it.
+func (h *StatusHandler) ConnectPeer(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Multiaddr string `json:"multiaddr"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Multiaddr == "" {
+		http.Error(w, "multiaddr is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.Node.ConnectPeer(r.Context(), req.Multiaddr, true); err != nil {
+		http.Error(w, fmt.Sprintf("connect failed: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "connected"})
 }
 
 // Peers handles GET /api/v1/peers.

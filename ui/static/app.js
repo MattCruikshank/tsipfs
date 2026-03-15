@@ -15,6 +15,7 @@ async function refreshStatus() {
     $('#pinned-size').textContent = data.pinned_size || '—';
     $('#cache-size').textContent = data.cache_size || '—';
     if (data.gateway_url) gatewayURL = data.gateway_url;
+    updateBootstrapAddr(data.bootstrap_multiaddr);
     $('#status-badge').textContent = 'online';
     $('#status-badge').className = 'badge ok';
   } catch {
@@ -164,6 +165,51 @@ function uploadFile(file) {
   xhr.open('POST', `${API}/pins`);
   xhr.send(formData);
 }
+
+// --- Bootstrap ---
+let bootstrapAddr = '';
+
+function updateBootstrapAddr(addr) {
+  bootstrapAddr = addr || '';
+  $('#bootstrap-addr').textContent = bootstrapAddr || '—';
+}
+
+$('#copy-bootstrap').addEventListener('click', () => {
+  if (!bootstrapAddr) return;
+  navigator.clipboard.writeText(bootstrapAddr).then(() => {
+    $('#copy-bootstrap').textContent = 'Copied!';
+    setTimeout(() => { $('#copy-bootstrap').textContent = 'Copy'; }, 1500);
+  });
+});
+
+$('#connect-peer').addEventListener('click', async () => {
+  const addr = $('#peer-multiaddr').value.trim();
+  if (!addr) return;
+
+  const statusEl = $('#connect-status');
+  statusEl.textContent = 'Connecting...';
+  statusEl.className = 'connect-status';
+
+  try {
+    const res = await fetch(`${API}/peers/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ multiaddr: addr }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text);
+    }
+    statusEl.textContent = 'Connected and saved!';
+    statusEl.className = 'connect-status ok';
+    $('#peer-multiaddr').value = '';
+    refreshPeers();
+    refreshStatus();
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.className = 'connect-status err';
+  }
+});
 
 // --- Peers ---
 async function refreshPeers() {

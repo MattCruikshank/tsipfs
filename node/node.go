@@ -111,9 +111,10 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 		log.Printf("warning: DHT bootstrap failed: %v", err)
 	}
 
-	// Connect to bootstrap peers
-	if len(cfg.BootstrapPeers) > 0 {
-		connectBootstrapPeers(ctx, h, cfg.BootstrapPeers)
+	// Connect to bootstrap peers (from env + saved file)
+	allPeers := append(cfg.BootstrapPeers, LoadSavedBootstrapPeers(cfg.DataDir)...)
+	if len(allPeers) > 0 {
+		connectBootstrapPeers(ctx, h, allPeers)
 	}
 
 	// 6. Create bitswap
