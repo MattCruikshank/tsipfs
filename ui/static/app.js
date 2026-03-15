@@ -184,7 +184,11 @@ async function refreshBootstrap() {
     if (bootstrapData.swarm_key) parts.push(bootstrapData.swarm_key);
     parts.push(...bootstrapData.peers);
 
-    list.innerHTML = `<code class="mono init-cmd">${parts.join(' \\\n  ')}</code>`;
+    const code = document.createElement('code');
+    code.className = 'mono init-cmd';
+    code.textContent = parts.join(' \\\n  ');
+    list.innerHTML = '';
+    list.appendChild(code);
   } catch (err) {
     console.error('Failed to load bootstrap list:', err);
   }
