@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tsipfs admin</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>tsipfs</h1>
+    <span id="status-badge" class="badge">connecting...</span>
+  </header>
+
+  <main>
+    <section id="node-info">
+      <h2>Node</h2>
+      <div class="info-grid">
+        <div class="info-card">
+          <span class="label">Peer ID</span>
+          <span id="peer-id" class="value mono">—</span>
+        </div>
+        <div class="info-card">
+          <span class="label">Peers</span>
+          <span id="peer-count" class="value">—</span>
+        </div>
+        <div class="info-card">
+          <span class="label">Uptime</span>
+          <span id="uptime" class="value">—</span>
+        </div>
+        <div class="info-card">
+          <span class="label">Pinned</span>
+          <span id="pinned-size" class="value">—</span>
+        </div>
+        <div class="info-card">
+          <span class="label">Cache</span>
+          <span id="cache-size" class="value">—</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="upload-section">
+      <h2>Upload</h2>
+      <form id="upload-form">
+        <div class="upload-area" id="drop-zone">
+          <p>Drop a file here or <label for="file-input" class="link">browse</label></p>
+          <input type="file" id="file-input" hidden>
+        </div>
+        <div id="upload-progress" class="progress" hidden>
+          <div id="progress-bar" class="progress-bar"></div>
+          <span id="progress-text">0%</span>
+        </div>
+        <div id="upload-result" hidden>
+          <span class="label">CID:</span>
+          <code id="result-cid"></code>
+        </div>
+      </form>
+    </section>
+
+    <section id="pins-section">
+      <h2>Pins <button id="refresh-pins" class="btn-sm">Refresh</button></h2>
+      <table id="pins-table">
+        <thead>
+          <tr>
+            <th>CID</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="pins-body">
+        </tbody>
+      </table>
+      <p id="no-pins" hidden>No pinned content.</p>
+    </section>
+
+    <section id="peers-section">
+      <h2>Peers <button id="refresh-peers" class="btn-sm">Refresh</button></h2>
+      <table id="peers-table">
+        <thead>
+          <tr>
+            <th>Peer ID</th>
+            <th>Addresses</th>
+          </tr>
+        </thead>
+        <tbody id="peers-body">
+        </tbody>
+      </table>
+      <p id="no-peers" hidden>No connected peers.</p>
+    </section>
+
+    <section id="cache-section">
+      <h2>Cache</h2>
+      <div class="cache-row">
+        <span>Usage: <strong id="cache-usage">—</strong></span>
+        <button id="flush-cache" class="btn-danger">Flush Cache</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

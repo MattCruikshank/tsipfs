@@ -1,0 +1,18 @@
+# Binary
+tsipfs
+
+# Data directory
+data/
+
+# Environment (contains swarm key)
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
