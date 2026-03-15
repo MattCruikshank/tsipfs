@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -24,9 +25,18 @@ func Load() (*Config, error) {
 	// Load .env file if it exists (don't error if missing)
 	_ = godotenv.Load()
 
+	// Resolve data dir to absolute path so CLI commands work from any directory
+	dataDir := envOr("TSIPFS_DATA_DIR", "./data")
+	if !filepath.IsAbs(dataDir) {
+		abs, err := filepath.Abs(dataDir)
+		if err == nil {
+			dataDir = abs
+		}
+	}
+
 	cfg := &Config{
 		SwarmKey:       os.Getenv("TSIPFS_SWARM_KEY"),
-		DataDir:        envOr("TSIPFS_DATA_DIR", "./data"),
+		DataDir:        dataDir,
 		FunnelHostname: os.Getenv("TSIPFS_FUNNEL_HOSTNAME"),
 		TSAuthKey:      os.Getenv("TS_AUTHKEY"),
 	}
