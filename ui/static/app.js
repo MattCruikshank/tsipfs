@@ -176,11 +176,27 @@ function updateBootstrapAddr(addr) {
 
 $('#copy-bootstrap').addEventListener('click', () => {
   if (!bootstrapAddr) return;
-  navigator.clipboard.writeText(bootstrapAddr).then(() => {
+  copyText(bootstrapAddr).then(() => {
     $('#copy-bootstrap').textContent = 'Copied!';
     setTimeout(() => { $('#copy-bootstrap').textContent = 'Copy'; }, 1500);
   });
 });
+
+function copyText(text) {
+  // navigator.clipboard requires HTTPS; fall back for plain HTTP (tailnet)
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+  return Promise.resolve();
+}
 
 $('#connect-peer').addEventListener('click', async () => {
   const addr = $('#peer-multiaddr').value.trim();
