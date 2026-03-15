@@ -15,9 +15,8 @@ import (
 	"github.com/ipfs/boxo/pinning/pinner/dspinner"
 	pinner "github.com/ipfs/boxo/pinning/pinner"
 	ds "github.com/ipfs/go-datastore"
-	dssync "github.com/ipfs/go-datastore/sync"
 	ipld "github.com/ipfs/go-ipld-format"
-	flatfs "github.com/ipfs/go-ds-flatfs"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -41,6 +40,7 @@ type Node struct {
 	pinnedDS ds.Batching
 	cacheDS  ds.Batching
 	pinnerDS ds.Batching
+	dhtDS    ds.Batching
 }
 
 // Start creates and wires all IPFS subsystems.
@@ -52,7 +52,7 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 	}
 	log.Println("swarm key loaded")
 
-	// 2. Open split blockstore
+	// 2. Open split blockstore (flatfs — good for single-segment CID keys)
 	splitBS, pinnedDS, cacheDS, err := OpenSplitBlockstore(cfg.DataDir)
 	if err != nil {
 		return nil, fmt.Errorf("opening blockstore: %w", err)
@@ -82,8 +82,8 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 		log.Printf("  listening on %s/p2p/%s", addr, h.ID())
 	}
 
-	// 5. Create DHT for content routing
-	dhtDS, err := flatfs.CreateOrOpen(filepath.Join(cfg.DataDir, "dht"), flatfs.NextToLast(2), false)
+	// 5. Create DHT for content routing (leveldb — supports hierarchical keys)
+	dhtDS, err := leveldb.NewDatastore(filepath.Join(cfg.DataDir, "dht"), nil)
 	if err != nil {
 		h.Close()
 		pinnedDS.Close()
@@ -94,7 +94,7 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 	ipfsDHT, err := dht.New(ctx, h,
 		dht.Mode(dht.ModeServer),
 		dht.ProtocolPrefix("/tsipfs"),
-		dht.Datastore(dssync.MutexWrap(dhtDS)),
+		dht.Datastore(dhtDS),
 	)
 	if err != nil {
 		h.Close()
@@ -124,9 +124,9 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 	bserv := blockservice.New(splitBS, bswap)
 	dagServ := merkledag.NewDAGService(bserv)
 
-	// 8. Pinner (uses its own datastore for pin metadata)
+	// 8. Pinner (leveldb — supports hierarchical keys like /pins/state/dirty)
 	pinnerDSPath := filepath.Join(cfg.DataDir, "pins")
-	pinnerFlatfs, err := flatfs.CreateOrOpen(pinnerDSPath, flatfs.NextToLast(2), false)
+	pinnerLDB, err := leveldb.NewDatastore(pinnerDSPath, nil)
 	if err != nil {
 		bswap.Close()
 		ipfsDHT.Close()
@@ -136,11 +136,10 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 		dhtDS.Close()
 		return nil, fmt.Errorf("opening pinner datastore: %w", err)
 	}
-	pinnerDSWrapped := dssync.MutexWrap(pinnerFlatfs)
 
-	p, err := dspinner.New(ctx, pinnerDSWrapped, dagServ)
+	p, err := dspinner.New(ctx, pinnerLDB, dagServ)
 	if err != nil {
-		pinnerFlatfs.Close()
+		pinnerLDB.Close()
 		bswap.Close()
 		ipfsDHT.Close()
 		h.Close()
@@ -162,7 +161,8 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 		DataDir:      cfg.DataDir,
 		pinnedDS:     pinnedDS,
 		cacheDS:      cacheDS,
-		pinnerDS:     pinnerDSWrapped,
+		pinnerDS:     pinnerLDB,
+		dhtDS:        dhtDS,
 	}, nil
 }
 
@@ -202,6 +202,9 @@ func (n *Node) Close() error {
 		closer.Close()
 	}
 	if closer, ok := n.pinnerDS.(interface{ Close() error }); ok {
+		closer.Close()
+	}
+	if closer, ok := n.dhtDS.(interface{ Close() error }); ok {
 		closer.Close()
 	}
 	log.Println("IPFS node stopped")

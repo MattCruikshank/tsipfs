@@ -76,7 +76,11 @@ $('#refresh-pins').addEventListener('click', refreshPins);
 const dropZone = $('#drop-zone');
 const fileInput = $('#file-input');
 
-dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('click', (e) => {
+  // Avoid double-triggering when clicking the <label> which already opens the input
+  if (e.target.tagName === 'LABEL' || e.target === fileInput) return;
+  fileInput.click();
+});
 
 dropZone.addEventListener('dragover', (e) => {
   e.preventDefault();
