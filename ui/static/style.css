@@ -223,9 +223,9 @@ tbody tr:hover { background: var(--surface); }
   border: 1px solid var(--border);
   display: block;
 }
-.bootstrap-list code.swarm-key {
-  border-color: var(--accent);
-  color: var(--accent);
+.bootstrap-list code.init-cmd {
+  white-space: pre-wrap;
+  line-height: 1.6;
 }
 .connect-row {
   display: flex;

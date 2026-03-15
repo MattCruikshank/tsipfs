@@ -173,31 +173,34 @@ async function refreshBootstrap() {
     const res = await fetch(`${API}/bootstrap`);
     bootstrapData = await res.json();
     const list = $('#bootstrap-list');
-    const lines = [];
-    if (bootstrapData.swarm_key) {
-      lines.push(`<code class="mono swarm-key">${bootstrapData.swarm_key}</code>`);
-    }
-    for (const p of bootstrapData.peers) {
-      lines.push(`<code class="mono">${p}</code>`);
-    }
-    if (lines.length === 0) {
+
+    if (!bootstrapData.swarm_key && bootstrapData.peers.length === 0) {
       list.innerHTML = '<code class="mono">No known nodes yet.</code>';
-    } else {
-      list.innerHTML = lines.join('');
+      return;
     }
+
+    // Build the go run init command
+    const parts = ['go run github.com/MattCruikshank/tsipfs@latest init <your-hostname>'];
+    if (bootstrapData.swarm_key) parts.push(bootstrapData.swarm_key);
+    parts.push(...bootstrapData.peers);
+
+    list.innerHTML = `<code class="mono init-cmd">${parts.join(' \\\n  ')}</code>`;
   } catch (err) {
     console.error('Failed to load bootstrap list:', err);
   }
 }
 
 $('#copy-bootstrap').addEventListener('click', () => {
-  const lines = [];
-  if (bootstrapData.swarm_key) lines.push(bootstrapData.swarm_key);
-  lines.push(...bootstrapData.peers);
-  if (lines.length === 0) return;
-  copyText(lines.join('\n')).then(() => {
+  if (!bootstrapData.swarm_key && bootstrapData.peers.length === 0) return;
+
+  const parts = ['go run github.com/MattCruikshank/tsipfs@latest init <your-hostname>'];
+  if (bootstrapData.swarm_key) parts.push(bootstrapData.swarm_key);
+  parts.push(...bootstrapData.peers);
+  const cmd = parts.join(' \\\n  ');
+
+  copyText(cmd).then(() => {
     $('#copy-bootstrap').textContent = 'Copied!';
-    setTimeout(() => { $('#copy-bootstrap').textContent = 'Copy all'; }, 1500);
+    setTimeout(() => { $('#copy-bootstrap').textContent = 'Copy'; }, 1500);
   });
 });
 
@@ -218,36 +221,73 @@ function copyText(text) {
 }
 
 // isSwarmKey checks if a line looks like a hex swarm key (64 hex chars)
-function isSwarmKey(line) {
-  return /^[0-9a-fA-F]{64}$/.test(line);
+function isSwarmKey(s) {
+  return /^[0-9a-fA-F]{64}$/.test(s);
+}
+
+// isMultiaddr checks if a string looks like a libp2p multiaddr
+function isMultiaddr(s) {
+  return s.startsWith('/');
+}
+
+// parseBootstrapInput extracts swarm key and peer addrs from various formats:
+// - Raw multiaddrs (one per line)
+// - Swarm key + multiaddrs
+// - Full "go run ... init <hostname> <swarmkey> <peers...>" command
+function parseBootstrapInput(raw) {
+  // Collapse line continuations (backslash + newline) into spaces
+  const collapsed = raw.replace(/\\\s*\n\s*/g, ' ');
+  const tokens = collapsed.split(/\s+/).filter(s => s);
+
+  let swarmKey = null;
+  const addrs = [];
+
+  // Detect "go run ... init" command format
+  const initIdx = tokens.indexOf('init');
+  if (initIdx !== -1) {
+    // Everything after "init" is: <hostname> <swarm-key> [peers...]
+    const initArgs = tokens.slice(initIdx + 1);
+    for (const tok of initArgs) {
+      if (isSwarmKey(tok)) {
+        swarmKey = tok;
+      } else if (isMultiaddr(tok)) {
+        addrs.push(tok);
+      }
+      // hostname and other non-matching tokens are ignored
+    }
+  } else {
+    // Plain format: lines of swarm keys and/or multiaddrs
+    const lines = raw.split('\n').map(s => s.replace(/\\$/, '').trim()).filter(s => s && !s.startsWith('#'));
+    for (const line of lines) {
+      if (isSwarmKey(line)) {
+        swarmKey = line;
+      } else if (isMultiaddr(line)) {
+        addrs.push(line);
+      }
+    }
+  }
+
+  return { swarmKey, addrs };
 }
 
 $('#connect-peer').addEventListener('click', async () => {
   const raw = $('#peer-multiaddr').value.trim();
   if (!raw) return;
 
-  const lines = raw.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
-  if (lines.length === 0) return;
-
   const statusEl = $('#connect-status');
+  const { swarmKey, addrs } = parseBootstrapInput(raw);
 
-  // Check for swarm key (first line that looks like one)
-  const addrs = [];
-  for (const line of lines) {
-    if (isSwarmKey(line)) {
-      if (!bootstrapData.swarm_key) {
-        statusEl.textContent = 'You don\'t have a swarm key configured. Add TSIPFS_SWARM_KEY=' + line + ' to your .env file and restart.';
-        statusEl.className = 'connect-status err';
-        return;
-      } else if (line.toLowerCase() !== bootstrapData.swarm_key.toLowerCase()) {
-        statusEl.textContent = 'Swarm key mismatch! The pasted key doesn\'t match yours. Update TSIPFS_SWARM_KEY in .env and restart to join this network.';
-        statusEl.className = 'connect-status err';
-        return;
-      }
-      // Keys match — skip it
-      continue;
+  // Check swarm key if one was found
+  if (swarmKey) {
+    if (!bootstrapData.swarm_key) {
+      statusEl.textContent = 'You don\'t have a swarm key configured. Run: tsipfs init <your-hostname> ' + swarmKey + ' <peers...>';
+      statusEl.className = 'connect-status err';
+      return;
+    } else if (swarmKey.toLowerCase() !== bootstrapData.swarm_key.toLowerCase()) {
+      statusEl.textContent = 'Swarm key mismatch! The pasted key doesn\'t match yours. Update TSIPFS_SWARM_KEY in .env and restart to join this network.';
+      statusEl.className = 'connect-status err';
+      return;
     }
-    addrs.push(line);
   }
 
   if (addrs.length === 0) {
