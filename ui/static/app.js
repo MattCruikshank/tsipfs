@@ -46,9 +46,11 @@ async function refreshPins() {
       const cidLink = gatewayURL
         ? `<a href="${gatewayURL}/ipfs/${pin.cid}" target="_blank" rel="noopener">${pin.cid}</a>`
         : pin.cid;
+      const date = pin.pinned_at ? new Date(pin.pinned_at).toLocaleDateString() : '';
       tr.innerHTML = `
         <td>${cidLink}</td>
         <td>${pin.name || ''}</td>
+        <td>${date}</td>
         <td>${typeLabel}</td>
         <td><button class="btn-unpin" data-cid="${pin.cid}">unpin</button></td>
       `;

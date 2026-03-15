@@ -20,9 +20,10 @@ type PinHandler struct {
 }
 
 type pinInfo struct {
-	CID  string `json:"cid"`
-	Name string `json:"name,omitempty"`
-	Type string `json:"type"`
+	CID      string `json:"cid"`
+	Name     string `json:"name,omitempty"`
+	Type     string `json:"type"`
+	PinnedAt string `json:"pinned_at,omitempty"`
 }
 
 // Upload handles POST /api/v1/pins — multipart file upload, adds and pins content.
@@ -75,6 +76,9 @@ func (h *PinHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rootCID := rootNode.Cid()
+	if h.Node.PinMeta != nil {
+		h.Node.PinMeta.Set(rootCID.String())
+	}
 	log.Printf("pinned %s (%s)", rootCID, name)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -96,7 +100,13 @@ func (h *PinHandler) List(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("listing recursive pins: %v", sp.Err), http.StatusInternalServerError)
 			return
 		}
-		pins = append(pins, pinInfo{CID: sp.Pin.Key.String(), Name: sp.Pin.Name, Type: "recursive"})
+		pi := pinInfo{CID: sp.Pin.Key.String(), Name: sp.Pin.Name, Type: "recursive"}
+		if h.Node.PinMeta != nil {
+			if m, ok := h.Node.PinMeta.Get(pi.CID); ok {
+				pi.PinnedAt = m.PinnedAt.UTC().Format("2006-01-02T15:04:05Z")
+			}
+		}
+		pins = append(pins, pi)
 	}
 
 	// List direct pins
@@ -105,7 +115,13 @@ func (h *PinHandler) List(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("listing direct pins: %v", sp.Err), http.StatusInternalServerError)
 			return
 		}
-		pins = append(pins, pinInfo{CID: sp.Pin.Key.String(), Name: sp.Pin.Name, Type: "direct"})
+		pi := pinInfo{CID: sp.Pin.Key.String(), Name: sp.Pin.Name, Type: "direct"}
+		if h.Node.PinMeta != nil {
+			if m, ok := h.Node.PinMeta.Get(pi.CID); ok {
+				pi.PinnedAt = m.PinnedAt.UTC().Format("2006-01-02T15:04:05Z")
+			}
+		}
+		pins = append(pins, pi)
 	}
 
 	if pins == nil {
@@ -160,6 +176,9 @@ func (h *PinHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		log.Printf("warning: pinner flush error: %v", err)
 	}
 
+	if h.Node.PinMeta != nil {
+		h.Node.PinMeta.Delete(c.String())
+	}
 	log.Printf("unpinned %s", c)
 	w.WriteHeader(http.StatusNoContent)
 }

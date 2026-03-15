@@ -35,6 +35,7 @@ type Node struct {
 	DAGService   ipld.DAGService
 	Pinner       pinner.Pinner
 	Blockstore   *SplitBlockstore
+	PinMeta      *PinMeta
 	DataDir      string
 
 	pinnedDS ds.Batching
@@ -150,6 +151,12 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 	}
 	log.Println("pinner initialized")
 
+	// 9. Pin metadata (timestamps)
+	pinMeta, err := NewPinMeta(cfg.DataDir)
+	if err != nil {
+		log.Printf("warning: pin metadata unavailable: %v", err)
+	}
+
 	return &Node{
 		Host:         h,
 		DHT:          ipfsDHT,
@@ -158,6 +165,7 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 		DAGService:   dagServ,
 		Pinner:       p,
 		Blockstore:   splitBS,
+		PinMeta:      pinMeta,
 		DataDir:      cfg.DataDir,
 		pinnedDS:     pinnedDS,
 		cacheDS:      cacheDS,
