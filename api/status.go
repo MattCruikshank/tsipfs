@@ -88,24 +88,32 @@ func (h *StatusHandler) ConnectPeer(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "connected"})
 }
 
-// BootstrapList handles GET /api/v1/bootstrap — returns all known bootstrap multiaddrs.
+type bootstrapInfo struct {
+	SwarmKey string   `json:"swarm_key"`
+	Peers    []string `json:"peers"`
+}
+
+// BootstrapList handles GET /api/v1/bootstrap — returns swarm key + all known bootstrap multiaddrs.
 func (h *StatusHandler) BootstrapList(w http.ResponseWriter, r *http.Request) {
-	var addrs []string
+	var peers []string
 
 	// This node's own address
 	if own := h.Node.BootstrapMultiaddr(h.funnelHost()); own != "" {
-		addrs = append(addrs, own)
+		peers = append(peers, own)
 	}
 
 	// Saved bootstrap peers
-	addrs = append(addrs, node.LoadSavedBootstrapPeers(h.Node.DataDir)...)
+	peers = append(peers, node.LoadSavedBootstrapPeers(h.Node.DataDir)...)
 
-	if addrs == nil {
-		addrs = []string{}
+	if peers == nil {
+		peers = []string{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(addrs)
+	json.NewEncoder(w).Encode(bootstrapInfo{
+		SwarmKey: h.Node.SwarmKey,
+		Peers:    peers,
+	})
 }
 
 // Peers handles GET /api/v1/peers.

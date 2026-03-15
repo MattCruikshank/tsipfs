@@ -37,6 +37,7 @@ type Node struct {
 	Blockstore   *SplitBlockstore
 	PinMeta      *PinMeta
 	DataDir      string
+	SwarmKey     string
 
 	pinnedDS ds.Batching
 	cacheDS  ds.Batching
@@ -168,6 +169,7 @@ func Start(ctx context.Context, cfg *config.Config) (*Node, error) {
 		Blockstore:   splitBS,
 		PinMeta:      pinMeta,
 		DataDir:      cfg.DataDir,
+		SwarmKey:     cfg.SwarmKey,
 		pinnedDS:     pinnedDS,
 		cacheDS:      cacheDS,
 		pinnerDS:     pinnerLDB,

@@ -223,6 +223,10 @@ tbody tr:hover { background: var(--surface); }
   border: 1px solid var(--border);
   display: block;
 }
+.bootstrap-list code.swarm-key {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .connect-row {
   display: flex;
   gap: 0.5rem;
