@@ -218,10 +218,12 @@ $('#flush-cache').addEventListener('click', async () => {
 });
 
 // --- Init ---
-refreshStatus();
-refreshPins();
-refreshPeers();
-refreshCache();
+// Load status first (provides gatewayURL), then everything else
+refreshStatus().then(() => {
+  refreshPins();
+  refreshPeers();
+  refreshCache();
+});
 
 // Auto-refresh status every 10s
 setInterval(refreshStatus, 10000);
