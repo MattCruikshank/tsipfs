@@ -13,8 +13,8 @@ import (
 
 type TailscaleNode struct {
 	Server        *tsnet.Server
-	FunnelListener net.Listener
-	AdminListener  net.Listener
+	FunnelListener net.Listener // for libp2p swarm (public, so other nodes can connect)
+	AdminListener  net.Listener // for admin UI, API, and private gateway (tailnet-only)
 }
 
 func StartTailscale(ctx context.Context, cfg *config.Config) (*TailscaleNode, error) {
@@ -34,15 +34,15 @@ func StartTailscale(ctx context.Context, cfg *config.Config) (*TailscaleNode, er
 	}
 	log.Printf("tsnet server started as %s", hostname)
 
-	// Funnel listener for the public IPFS gateway (HTTPS on port 443)
+	// Funnel listener for libp2p swarm port (public, so nodes on other tailnets can connect)
 	funnelLn, err := srv.ListenFunnel("tcp", ":443")
 	if err != nil {
 		srv.Close()
 		return nil, fmt.Errorf("starting funnel listener: %w", err)
 	}
-	log.Println("funnel listener active on :443")
+	log.Println("funnel listener active on :443 (swarm)")
 
-	// Tailnet-only listener for admin UI and REST API
+	// Tailnet-only listener for admin UI, REST API, and private gateway
 	adminLn, err := srv.Listen("tcp", fmt.Sprintf(":%d", cfg.AdminPort))
 	if err != nil {
 		funnelLn.Close()

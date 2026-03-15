@@ -29,11 +29,3 @@ func TailscaleAuth(srv *tsnet.Server, next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-// LocalAuth is a no-op middleware for unix socket connections (already local).
-func LocalAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Header.Set("X-Tailscale-User", "local")
-		next.ServeHTTP(w, r)
-	})
-}

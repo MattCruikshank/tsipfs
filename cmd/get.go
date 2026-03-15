@@ -1,13 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/MattCruikshank/tsipfs/config"
 	"github.com/spf13/cobra"
@@ -26,19 +23,10 @@ var getCmd = &cobra.Command{
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		sockPath := filepath.Join(cfg.DataDir, "api.sock")
 		outPath := cidStr
 
-		// Use the gateway endpoint via unix socket to fetch content
-		client := &http.Client{
-			Transport: &http.Transport{
-				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-					return net.Dial("unix", sockPath)
-				},
-			},
-		}
-
-		resp, err := client.Get(fmt.Sprintf("http://unix/ipfs/%s", cidStr))
+		baseURL := fmt.Sprintf("http://localhost:%d", cfg.AdminPort)
+		resp, err := http.Get(fmt.Sprintf("%s/ipfs/%s", baseURL, cidStr))
 		if err != nil {
 			return fmt.Errorf("connecting to tsipfs node (is it running?): %w", err)
 		}

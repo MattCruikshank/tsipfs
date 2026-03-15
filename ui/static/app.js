@@ -43,9 +43,7 @@ async function refreshPins() {
     for (const pin of pins) {
       const tr = document.createElement('tr');
       const typeLabel = pin.type === 'recursive' ? 'pinned' : pin.type === 'direct' ? 'direct' : pin.type;
-      const cidLink = gatewayURL
-        ? `<a href="${gatewayURL}/ipfs/${pin.cid}" target="_blank" rel="noopener">${pin.cid}</a>`
-        : pin.cid;
+      const cidLink = `<a href="/ipfs/${pin.cid}" target="_blank" rel="noopener">${pin.cid}</a>`;
       const date = pin.pinned_at ? new Date(pin.pinned_at).toLocaleDateString() : '';
       tr.innerHTML = `
         <td>${cidLink}</td>
@@ -143,11 +141,7 @@ function uploadFile(file) {
       progressBar.style.width = '100%';
       progressText.textContent = 'Done';
       resultEl.hidden = false;
-      if (gatewayURL) {
-        resultCid.innerHTML = `<a href="${gatewayURL}/ipfs/${data.cid}" target="_blank" rel="noopener">${data.cid}</a>`;
-      } else {
-        resultCid.textContent = data.cid;
-      }
+      resultCid.innerHTML = `<a href="/ipfs/${data.cid}" target="_blank" rel="noopener">${data.cid}</a>`;
       refreshPins();
       refreshStatus();
     } else {

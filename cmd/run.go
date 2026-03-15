@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -59,64 +58,33 @@ var runCmd = &cobra.Command{
 		)
 		go evictor.Run(ctx)
 
-		// Build gateway URL from the Funnel cert domains
-		gatewayURL := ""
+		// Get Funnel hostname for bootstrap multiaddr
+		funnelURL := ""
 		if domains := ts.Server.CertDomains(); len(domains) > 0 {
-			gatewayURL = fmt.Sprintf("https://%s", domains[0])
+			funnelURL = fmt.Sprintf("https://%s", domains[0])
 		}
 
 		// Create API router
-		apiRouter := api.NewRouter(ipfsNode, startTime, gatewayURL)
+		apiRouter := api.NewRouter(ipfsNode, startTime, funnelURL)
 
-		// Public IPFS gateway with rate limiting
+		// Private IPFS gateway (tailnet-only)
 		gwHandler, err := ipfsNode.GatewayHandler()
 		if err != nil {
 			return fmt.Errorf("creating gateway handler: %w", err)
 		}
-		// 100 requests per second per IP, burst of 200
-		rateLimiter := api.NewRateLimiter(100, time.Second, 200)
-		rateLimitedGW := rateLimiter.Middleware(gwHandler)
 
-		gatewaySrv := &http.Server{Handler: rateLimitedGW}
-		go func() {
-			log.Println("IPFS gateway serving on Funnel (public, rate-limited)")
-			if err := gatewaySrv.Serve(ts.FunnelListener); err != nil && err != http.ErrServerClosed {
-				log.Printf("gateway server error: %v", err)
-			}
-		}()
-
-		// Admin API + UI on tailnet-only listener (with Tailscale auth)
+		// Admin mux: API + UI + gateway, all on the tailnet-only listener
 		adminMux := http.NewServeMux()
 		adminMux.Handle("/api/", apiRouter)
+		adminMux.Handle("/ipfs/", gwHandler)
 		adminMux.Handle("/", ui.Handler())
 		tailnetAPI := api.TailscaleAuth(ts.Server, adminMux)
 
 		adminSrv := &http.Server{Handler: tailnetAPI}
 		go func() {
-			log.Printf("admin API serving on :%d (tailnet-only)", cfg.AdminPort)
+			log.Printf("admin + gateway serving on :%d (tailnet-only)", cfg.AdminPort)
 			if err := adminSrv.Serve(ts.AdminListener); err != nil && err != http.ErrServerClosed {
 				log.Printf("admin server error: %v", err)
-			}
-		}()
-
-		// Unix socket for local CLI access
-		sockPath := filepath.Join(cfg.DataDir, "api.sock")
-		os.Remove(sockPath)
-		sockLn, err := net.Listen("unix", sockPath)
-		if err != nil {
-			return fmt.Errorf("creating unix socket: %w", err)
-		}
-
-		localMux := http.NewServeMux()
-		localMux.Handle("/api/", apiRouter)
-		localMux.Handle("/ipfs/", gwHandler)
-		localAPI := api.LocalAuth(localMux)
-
-		localSrv := &http.Server{Handler: localAPI}
-		go func() {
-			log.Printf("local API socket: %s", sockPath)
-			if err := localSrv.Serve(sockLn); err != nil && err != http.ErrServerClosed {
-				log.Printf("local API server error: %v", err)
 			}
 		}()
 
@@ -130,18 +98,11 @@ var runCmd = &cobra.Command{
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer shutdownCancel()
 
-		// Shut down HTTP servers in parallel
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			if err := gatewaySrv.Shutdown(shutdownCtx); err != nil {
-				log.Printf("gateway shutdown: %v", err)
-			}
 			if err := adminSrv.Shutdown(shutdownCtx); err != nil {
 				log.Printf("admin shutdown: %v", err)
-			}
-			if err := localSrv.Shutdown(shutdownCtx); err != nil {
-				log.Printf("local API shutdown: %v", err)
 			}
 		}()
 
@@ -151,9 +112,6 @@ var runCmd = &cobra.Command{
 		case <-shutdownCtx.Done():
 			log.Println("shutdown timed out, forcing exit")
 		}
-
-		// Clean up socket
-		os.Remove(sockPath)
 
 		return nil
 	},

@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,8 +26,6 @@ var addCmd = &cobra.Command{
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		sockPath := filepath.Join(cfg.DataDir, "api.sock")
-
 		// Open the file
 		f, err := os.Open(filePath)
 		if err != nil {
@@ -49,22 +45,14 @@ var addCmd = &cobra.Command{
 		}
 		writer.Close()
 
-		// Create HTTP client that connects via unix socket
-		client := &http.Client{
-			Transport: &http.Transport{
-				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-					return net.Dial("unix", sockPath)
-				},
-			},
-		}
-
-		req, err := http.NewRequest("POST", "http://unix/api/v1/pins", &body)
+		baseURL := fmt.Sprintf("http://localhost:%d", cfg.AdminPort)
+		req, err := http.NewRequest("POST", baseURL+"/api/v1/pins", &body)
 		if err != nil {
 			return fmt.Errorf("creating request: %w", err)
 		}
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
-		resp, err := client.Do(req)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return fmt.Errorf("connecting to tsipfs node (is it running?): %w", err)
 		}
