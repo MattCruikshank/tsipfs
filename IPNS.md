@@ -10,7 +10,7 @@ CIDs are content-addressed — when the content changes, the CID changes. IPNS p
 
 ## How IPNS works
 
-1. A **keypair** generates a stable IPNS name (the public key hash)
+1. A **keypair** generates a stable IPNS name (the public key hash, e.g. `k51qzi5uqu5d...`)
 2. The owner signs an **IPNS record** pointing the name at a CID
 3. The record is published to the DHT so other nodes can resolve it
 4. Records have a **TTL** and **sequence number** for freshness
@@ -19,36 +19,37 @@ CIDs are content-addressed — when the content changes, the CID changes. IPNS p
 /ipns/k51qzi5uqu5d...  →  QmXYZ...  (signed, seq=3, ttl=1h)
 ```
 
-The node's peer ID is itself a key, so every node gets one IPNS name for free. Additional named keys can be generated for separate channels.
+IPNS names are derived from standalone keypairs, not the node's peer ID. This makes them **portable** — you can back up a key, move it to another node, or share it with a trusted co-publisher. The name stays the same because it's tied to the key, not the machine.
 
 ## What we already have
 
 - Boxo gateway already supports `/ipns/` resolution
 - DHT is running with `ValueStore` (used for IPNS record storage/retrieval)
-- libp2p host identity provides the default keypair
+- `libp2p/core/crypto` already imported for key generation
 
 ## What we need to add
 
 ### 1. Key management
 
-Store named keypairs in `data/keys/`. Each key gets an IPNS name.
+Store named keypairs in `data/keys/`. Each key gets a stable IPNS name.
 
 ```
 tsipfs key gen <name>         # generate a new keypair, print its IPNS name
 tsipfs key list               # list all keys and their IPNS names
 tsipfs key rm <name>          # delete a keypair
+tsipfs key export <name>      # export private key (for backup or sharing)
+tsipfs key import <name> <file> # import a private key
 ```
-
-The node's own identity key is always available as `self`.
 
 ### 2. Publishing
 
 Update an IPNS name to point at a CID.
 
 ```
-tsipfs name publish <cid>               # publish using the 'self' key
 tsipfs name publish --key=<name> <cid>  # publish using a named key
 ```
+
+`--key` is required — there is no default. You always publish with an explicit named key.
 
 Options:
 - `--ttl` — how long resolvers should cache (default: 1h)
@@ -69,7 +70,7 @@ POST   /api/v1/keys              Create a keypair (body: {"name": "my-collection
 GET    /api/v1/keys              List keys and their IPNS names
 DELETE /api/v1/keys/:name        Delete a keypair
 
-POST   /api/v1/names/publish     Publish (body: {"cid": "Qm...", "key": "self"})
+POST   /api/v1/names/publish     Publish (body: {"cid": "Qm...", "key": "my-collection"})
 GET    /api/v1/names/:name       Resolve an IPNS name to a CID
 GET    /api/v1/names             List this node's published names
 ```
@@ -93,9 +94,14 @@ Add a **Names** section:
 
 Keys stored as marshaled private keys in `data/keys/<name>.key` (same format as `identity.key`). A metadata file `data/keys/keys.json` maps names to IPNS addresses for fast listing.
 
+Keys are independent of the node identity. They can be:
+- Backed up and restored
+- Moved between nodes
+- Shared with trusted co-publishers (e.g. multiple nodes can publish to the same IPNS name)
+
 ### Publishing flow
 
-1. Load the named key (or `self` for the node identity)
+1. Load the named key from `data/keys/<name>.key`
 2. Create an IPNS record: sign `(name → CID, seq, validity, ttl)` with the private key
 3. Put the record into the DHT via `routing.ValueStore.PutValue()`
 4. Save the current mapping locally for the admin UI
@@ -117,7 +123,7 @@ IPNS records expire. A background goroutine should republish all active names ev
 ```sh
 # Create a key for your texture collection
 tsipfs key gen textures
-# → /ipns/k51qzi5uqu5dg8...
+# → k51qzi5uqu5dg8...
 
 # Upload and pin v1 of the collection
 tsipfs add textures-v1.zip
@@ -125,7 +131,7 @@ tsipfs add textures-v1.zip
 
 # Publish the stable name
 tsipfs name publish --key=textures QmABC...
-# → published /ipns/k51qzi5uqu5dg8... → QmABC...
+# → published k51qzi5uqu5dg8... → QmABC...
 
 # Anyone can access it at a stable URL:
 # https://your-node/ipns/k51qzi5uqu5dg8...
@@ -135,16 +141,22 @@ tsipfs add textures-v2.zip
 # → QmXYZ...
 
 tsipfs name publish --key=textures QmXYZ...
-# → published /ipns/k51qzi5uqu5dg8... → QmXYZ...
+# → published k51qzi5uqu5dg8... → QmXYZ...
 
 # Same URL, new content
+
+# Back up the key
+tsipfs key export textures > textures.key
+
+# Import on another node
+tsipfs key import textures textures.key
 ```
 
 ## Phases
 
 ### Phase A — Core
-- [ ] Key generation and storage
-- [ ] `tsipfs key gen/list/rm` CLI commands
+- [ ] Key generation, storage, export, import
+- [ ] `tsipfs key gen/list/rm/export/import` CLI commands
 - [ ] IPNS publish and resolve using Boxo namesys
 - [ ] `tsipfs name publish/resolve` CLI commands
 - [ ] Background republisher
