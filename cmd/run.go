@@ -59,8 +59,14 @@ var runCmd = &cobra.Command{
 		)
 		go evictor.Run(ctx)
 
+		// Build gateway URL from the Funnel cert domains
+		gatewayURL := ""
+		if domains := ts.Server.CertDomains(); len(domains) > 0 {
+			gatewayURL = fmt.Sprintf("https://%s", domains[0])
+		}
+
 		// Create API router
-		apiRouter := api.NewRouter(ipfsNode, startTime)
+		apiRouter := api.NewRouter(ipfsNode, startTime, gatewayURL)
 
 		// Public IPFS gateway with rate limiting
 		gwHandler, err := ipfsNode.GatewayHandler()

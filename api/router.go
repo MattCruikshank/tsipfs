@@ -8,7 +8,7 @@ import (
 )
 
 // NewRouter creates the REST API router with all endpoints.
-func NewRouter(n *node.Node, startTime time.Time) http.Handler {
+func NewRouter(n *node.Node, startTime time.Time, gatewayURL string) http.Handler {
 	mux := http.NewServeMux()
 
 	ph := &PinHandler{Node: n}
@@ -21,7 +21,7 @@ func NewRouter(n *node.Node, startTime time.Time) http.Handler {
 	mux.HandleFunc("POST /api/v1/cache/flush", ch.Flush)
 	mux.HandleFunc("GET /api/v1/cache/status", ch.Status)
 
-	sh := &StatusHandler{Node: n, StartTime: startTime}
+	sh := &StatusHandler{Node: n, StartTime: startTime, GatewayURL: gatewayURL}
 	mux.HandleFunc("GET /api/v1/status", sh.NodeStatus)
 	mux.HandleFunc("GET /api/v1/peers", sh.Peers)
 

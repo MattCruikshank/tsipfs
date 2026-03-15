@@ -11,8 +11,9 @@ import (
 )
 
 type StatusHandler struct {
-	Node      *node.Node
-	StartTime time.Time
+	Node       *node.Node
+	StartTime  time.Time
+	GatewayURL string // public Funnel URL, e.g. "https://tsipfs.tail1234.ts.net"
 }
 
 type nodeStatus struct {
@@ -22,6 +23,7 @@ type nodeStatus struct {
 	Uptime     string `json:"uptime"`
 	PinnedSize string `json:"pinned_size"`
 	CacheSize  string `json:"cache_size"`
+	GatewayURL string `json:"gateway_url"`
 }
 
 type peerInfo struct {
@@ -49,6 +51,7 @@ func (h *StatusHandler) NodeStatus(w http.ResponseWriter, r *http.Request) {
 		Uptime:     uptime,
 		PinnedSize: humanSize(pinnedSize),
 		CacheSize:  humanSize(cacheSize),
+		GatewayURL: h.GatewayURL,
 	})
 }
 
