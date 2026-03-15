@@ -37,8 +37,11 @@ func OpenSplitBlockstore(dataDir string) (*SplitBlockstore, ds.Batching, ds.Batc
 		return nil, nil, nil, fmt.Errorf("opening cache datastore: %w", err)
 	}
 
-	pinnedBS := blockstore.NewBlockstore(dssync.MutexWrap(pinnedDS))
-	cacheBS := blockstore.NewBlockstore(dssync.MutexWrap(cacheDS))
+	// NoPrefix() avoids adding a /blocks/ prefix to keys — flatfs doesn't
+	// support path separators in keys, and each store is already dedicated
+	// to a single purpose (pinned blocks or cached blocks).
+	pinnedBS := blockstore.NewBlockstore(dssync.MutexWrap(pinnedDS), blockstore.NoPrefix())
+	cacheBS := blockstore.NewBlockstore(dssync.MutexWrap(cacheDS), blockstore.NoPrefix())
 
 	return &SplitBlockstore{
 		pinned: pinnedBS,
