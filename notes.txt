@@ -1,0 +1,7 @@
+go build -o tsipfs . && ./tsipfs run
+
+http://tsipfs-alpha.tail4c18a.ts.net:6711/
+
+Me!
+https://tsipfs-alpha.tail4c18a.ts.net/ipfs/QmQFvAgdzY2Vj4iTuK1bwmCnHx8ht3DoNMpnV9JvyDvTrr
+
